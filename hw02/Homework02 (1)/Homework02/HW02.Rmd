@@ -1,0 +1,140 @@
+---
+title: "Homework 2"
+author: "Anonymous"
+date: 'Due: Thursday May 12th 2022 by 2:00 pm'
+output: rmdformats::material
+subtitle: 'STAT 363'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(ggthemes)
+library(dplyr)
+library(tidyr)
+```
+
+# General Information
+
+## Logistics
+
+-  Make a copy of this template to write out your solution, DO NOT rename it. Then knit it as `HW02.Rmd`.
+- Inside this .Rmd file do not include any personal identifier (such as your name, Odin ID, etc.). 
+- Knit your `Rmd` file as `html` and upload both the `Rmd` and `html` files with your solution to D2L in `Assignments > Homework 2` before Thursday May 12th 2022 by 2:00 pm.
+
+
+## Objectives for this week's homework
+
+1. Practice making figures in both base R and ggplot2
+2. Generate hypotheses and explore them graphically
+
+
+
+# Your Task
+
+Write down ONLY ONE question or hypothesis you are interested in exploring from the *world powerplant dataset* found in the [information is beautiful](https://informationisbeautiful.net/visualizations/mega-what-the-worlds-biggest-and-most-notable-power-plants/) website, which includes some nice visualizations.  The original data can be found [here](http://datasets.wri.org/dataset/globalpowerplantdatabase) along with a brief description.  You might want to work with just a subset of the data (e.g. one particular country), or you may choose to transform or summarize your data in the way that best allows you to explore your question.
+
+Note that inside of the `globalpowerplant` folder in Canvas the homework folder there are additional documents with information that may prove useful, in particular be sure to look at the `README.txt` file, which includes the metadata (a description of the variables) in the **Fields** section.
+
+
+
+**The idea is for you to investigate your question/hypothesis graphically.  To do so, generate the figures you consider necessary -- at least two and at most 4, and note that more figures is not necessarily better, fewer but very well thought-out and informative figures can usually do the trick. <span style="color:orange">At least one of your figures should be built using `base R` and at least one using `ggplot`.</span>**
+
+All titles, axes, and legends should be labeled clearly (no raw variable names). You must have at least one graph with `facet_wrap` or `facet_grid`. You must include at least one manually specified legend. You can use other `geoms` like histograms, bar charts, add vertical or horizontal lines, etc. [You may find this data visualization cheat sheet helpful](https://www.rstudio.com/wp-content/uploads/2016/11/ggplot2-cheatsheet-2.1.pdf).
+
+ 
+
+Your document should be aesthetically pleasing, with some organization. You must write up your observations in words as well as showing the graphs. Use chunk options `echo` and `results` to limit the code/output you show in the `.html`.
+
+Below I load in the data, but be careful, there are many rows that you may need to filter out to remove `NA`s in some of your variables of interest. 
+
+Have fun and Good Luck!!
+```{r load_data}
+power <- read.csv('globalpowerplant/global_power_plant_database.csv',
+                  na.strings = c(NA,"","NA"),
+                  header=T)
+```
+
+Recall that you can test (and filter out) for `NAs` using the function `is.na`, which is vectorized! If, for example you want to remove rows with NA's in the variable `year_of_capacity_data`, you can use the following line of code  (look at week 2's class notes for more information about this).
+
+```{r examplaNAs}
+power <- power %>% filter(!is.na(year_of_capacity_data) )
+```
+# Your question or hypothesis
+
+For my base R plot,I want to explore which primary fuel used the most in the United States of America for generating electricity.
+
+For my ggplot plot, I want to explore the same but this time, I want to compare primary fuel used the most in United States of America vs Canada. 
+
+# Your base R plot(s)
+
+
+```{r echo = T}
+# primary fuel in United States of America
+data_USA <- power[(power$country_long == 'United States of America'),] 
+
+#imported data to factor
+data_USA <- factor(data_USA$primary_fuel) 
+
+#column colors function
+col.typ <- rep(c("black","orange", "mediumblue", "limegreen", "mediumturquoise", "gold","lightgreen","purple", "darkorange", "red", "deeppink", "slategray","red","yellow"))
+
+# Plot
+plot(x = data_USA,
+     cex.names = 0.5, #names on the x-axis of barplot
+     cex.main = 1.5, #size of title
+     xlab = "Fuel",  #x-axis label
+     ylab = "Count", #y-axis label
+     main = "Primary Fuels in USA", #graph title
+     col = col.typ, #color of column
+     ylim = c(0,3800)) #upper and lower limit of the y-axis
+
+# Legend
+legend("topright", #legend position 
+       title ="Fuel Types", #title of legend
+       bty="y", # box around the legend
+       pch=c(19,19,19,19,19,19,19,19,19), #point symbol(19 is circle)
+       cex = 0.75,
+       col=col.typ , #using column colors function
+       legend = c("Biomass", "Coal", "Cogeneration", "Gas","Geothermal", "Hydro", "Nuclear", "Oil", "Other","petcoke", "Solar","Storage","Waste", "Wind"))
+
+```
+
+<h1 style="font-family:verdana;color:red;">Observation</h1>
+</p>
+
+I can see that Solar is the most energy source that used the most in the USA. I expected Gas, but Gas has the second rank and after that is Hydro. This maybe because Solar power is more affordable, accessible, and prevalent in the United States.
+
+# Your `ggplot` plot(s)
+
+
+```{r}
+# subset data for USA and Canada
+power_country <- subset(power,
+                     country_long == 'United States of America' |
+                     country_long == 'Canada' )
+
+
+ggplot(data = power_country, aes(x=primary_fuel, fill = primary_fuel)) +
+  geom_bar() + 
+  xlab("Primary Fuels\n\n") + ylab("Count") +  ##x and y axis label
+  ggtitle("Primary Fuels Use Comparison",subtitle = "USA vs Canada\n") + #title and subtitle of the graph
+  theme_bw(base_size = 10) +  #modify theme elements 
+  facet_wrap(country_long~., scales = "free") + # makes a long ribbon of panels and wraps it into 2d
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        legend.position = "bottom",legend.box.background = element_rect(colour = "black",size = 3),
+        plot.title = element_text(size = 15)) + # adjust the title size
+  #guiades for each scale
+  guides(group = "none", 
+         fill = guide_legend(override.aes=list(size = 2), ncol = 5)) +
+  scale_fill_discrete(name = " Fuel\nTypes") # legend name
+```
+
+<h1 style="font-family:verdana;color:red;">Observation</h1>
+</p>
+
+I can see that Solar is the most energy source that used the most in the USA, but in Canada Hydro is the most.It is very interesting that wind power is the second energy source using in Canada. I just find out that the most important source in Canada is moving water, and this is the reason that Canada is the second largest producer of hydro source in the world.
+
+
+
+

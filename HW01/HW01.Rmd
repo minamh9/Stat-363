@@ -1,0 +1,458 @@
+---
+title: "Homework 1" 
+author: "Mina Mehdinia"
+output:
+    html_document:
+        highlight: pygments
+        theme: united
+subtitle: 'STAT 363: Statistical Computing and Data Visualization with R'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#  {.tabset .tabset-fade .tabset-pills}
+
+## Instructions
+
+- Make a copy of this template to write out your solution, and rename it before  knitting it the first time as file as `LastnameFirstname_HW01.Rmd`, where you should replace `Lastname` and `Firstname` by your own last name and first name, respectively.
+
+- Inside this .Rmd file do not include any personal identifier (such as your name, Odin ID, etc.). 
+
+- Knit your Rmd file as html and upload both the Rmd and html files with your solution to D2L in `Activities > Assignments > Homework1` before Tuesday April 26th at 10:00 pm.
+
+
+## Objectives
+
+### **R Programming Objectives**
+
+ - Practice subsetting
+ - Using loops
+ - Creating your own functions
+ - Working with data frames in R
+ - Making basic R plots (histograms and density plots)
+
+### **Statistics Objectives **
+ - See the Central Limit Theorem in action
+ - Learn how to simulate data under particular assumptions and derive meaningful inference from it
+ - Learn about Monte Carlo integration
+
+## Homework Problems {.tabset .tabset-fade .tabset-pills} 
+
+### Understanding the CLT {.tabset .tabset-fade .tabset-pills} 
+
+#### **Background**
+
+One of the most important concepts in Statistics is the Central Limit Theorem (CLT); it is essential to conduct statistical inference of population parameters that describe any arbitrary distribution.  
+
+The CLT states that if we:
+
+1. Obtain sufficiently large number of samples (say $n$) at random from ANY given population distribution with mean equal to $\mu$ and standard deviation equal to $\sigma$ (call each sample as  $x_{ik}$ for $i=1,2,\ldots,n$),
+
+2. Calculate the **sample mean** (call the sample mean $\bar{x}_k=\frac{1}{n}\sum_{i=1}^n x_{ik}$), and 
+
+3. Repeat Steps 1 and 2 many, many times (suppose $k=1,2,\ldots, K$ with $K$ very large)
+
+then the resulting set of sample mean values $\bar{x}_{k}$ ($k=1,2,\ldots, K$) arise from a distribution that is asymptotically normal (i.e., as $n\rightarrow \infty$) with mean $\mu$ and standard deviation of $\sigma/\sqrt{n}$ (a.k.a. standard error).
+
+It is easy to become confused by how the Central Limit Theorem (or CLT) is typically presented, but at its core the idea is very simple. We often hear things like *the standard deviation of the sampling distribution of the sample mean* and have trouble wrapping our heads around it. So our goal here is to demystify the CLT through simulation and visualization following the three steps mentioned above.  **So, here we go!**
+
+
+
+#### **Problem 1**
+
+##### **Simulating the "true" populations**
+
+
+First, we will simulate four true populations each of size $N=10,000$, and having one of the following four distributions:
+
+- $X \sim N(\mu=5,\sigma=4)$
+- $X \sim \text{Uniform}(0, 10)$
+- $X \sim \text{Bernoulli}(p=0.2)$
+- $X \sim 0.3 N(\mu=2,\sigma=4) + 0.7 N(\mu=8,\sigma=1)$
+
+**Using the functions `rnorm(), runif()` and `rbinom()` sample the 4 population vectors of length $N=10,000$.  Name them `pop1`, `pop2`,`pop3` and `pop4`, respectively. Plot the histogram for each of the four populations using the function `hist()`.**
+
+> Hint: The last distribution above is known as a mixture distribution and it results when the population is made up of two sub-populations.  In this particular case an observation would come from the sub-population distributed $N(\mu=2,\sigma=4)$ with probability 0.3 and from the sub-population distributed $N(\mu=8,\sigma=1)$ with probability 0.7. To sample from the mixture, first draw $u_j$ from a $\text{Uniform}(0,1)$ distribution (with $j=1,2,\ldots,N$), and conditionally on each of these values you will draw from a:
+
+> * $N(\mu=2,\sigma=4)$ distribution if $u_j\leq 0.3$, and from
+> * $N(\mu=8,\sigma=1)$ distribution if $u_j>0.3$.
+
+```{r CLT1, eval=TRUE, results='markup'}
+# This command sets the random seed for replicability
+# (you only need to set this once in your .Rmd)
+set.seed(7759)
+
+# Generate your population vectors here
+```
+```{r}
+set.seed(7759)
+N <- 10000
+
+#rnorm generates a random number using normal distribution
+pop1 = rnorm(N,mean = 5, sd=4)
+hist(pop1, main = "Normal Distribution", col = "darkorange")
+
+#runif will generate random derivatives of the uniform distribution
+pop2 = runif(N, min = 0,max = 10)
+hist(pop2, main = "Uniform Distribution", col = "Blue")
+
+#rbinom will simulates a series of Bernoulli trials and turn the result
+pop3 = rbinom(N, size = 1, p = 0.2)
+hist(pop3, main = "Bernoulli Distribution", col = "pink")
+
+#vectorized the rnorm,generating random variables form a mixture of normal distribution.
+u_pop4 <- sample((1:2),prob=c(0.3,0.7),size=N,replace=TRUE)
+mean <- c(2,8)
+sd <- c(4,1)
+pop4 <- rnorm(N,mean=mean[u_pop4],sd=sd[u_pop4])
+hist(pop4, main = "Mixture Distribution", col = "Green")
+```
+
+#### **Problem 2** 
+
+##### **Drawing a sample from each population** 
+
+Now we will generate samples from each of the four true populations generated in **Problem 1**.
+
+##### **Part 1: Function to generate a random sample and calculate its mean**
+
+Write a function called `sample.mean`, such that:
+
+- **Takes as inputs:** i) a population vector (`pop`), ii) the number of samples (`n`, lower-case) to draw, and iii) a boolean that takes the value `TRUE` if the sample is to be part of the output (`out.sample`) and `FALSE` otherwise.
+- **In the body of the function:** i) selects at random `n` samples from `pop` and ii) calculates the sample mean.
+- **Outputs:** if `out.sample=FALSE` then only returns the sample mean, and if `out.sample=TRUE` it returns a named list with both the sample vector and the sample mean. 
+
+> Look into the help functions of `sample` and `mean` to do so.
+
+```{r CLT21}
+# create the sample.mean function here
+sample.mean <- function(pop, n, out.sample){ 
+  mysample <- sample(pop,n)
+  if(out.sample){
+    return(list(mysample=mysample,
+                samplemean=mean(sample(pop,n))))
+  }else{
+    return(mean(mysample))
+  }
+}
+
+print(sample.mean(pop1,4,TRUE))
+
+print(sample.mean(pop2,10,FALSE))
+
+print(sample.mean(pop3,10,TRUE))
+
+#for pop4 because it is mixture distribution, we create sample.mix function 
+sample.mix <- function(){
+  muvec <- c(2,8) #mean vector
+  sdvec <- c(4,1) #standard deviation vector
+  U <- sample(c(1,2),10000,replace=T,prob = c(0.3,0.7))
+  rnorm(10000,muvec[U],sdvec[U])
+}
+
+pop4 <- sample.mix()
+print(sample.mean(pop4,10,TRUE))
+
+```
+
+##### **Part 2: Generate one random sample **
+
+Use the function `sample.mean` you created to draw one sample of size $n=30$ from each of the four populations outputting both the samples and sample mean.  Plot the histogram of the sample drawn from each population using the function `hist()` and add a vertical line to the plot representing the mean with the function `abline()`.
+
+```{r CLT22sample}
+# draw random samples from pop1, ... pop4 here
+ 
+n = 30
+sample.mean(pop1,n,TRUE)
+
+
+sample.mean(pop2,n,FALSE)
+
+
+sample.mean(pop3,n,TRUE)
+
+
+sample.mean(pop4,n,TRUE)
+
+```
+
+```{r CLT22hist}
+# plot histograms for samples from pop1, ... pop4 here
+hist(sample(pop1))
+abline(v = mean(pop1), col="red")
+
+hist(sample(pop2))
+abline(v = mean(pop2), col="blue")
+
+hist(sample(pop3))
+abline(v = mean(pop3), col="red")
+
+hist(sample(pop4))
+abline(v = mean(pop4), col="blue")
+
+```
+
+#### **Problem 3**
+
+##### **Obtain the sampling distribution of the sample mean**
+
+Now we will get to see the CLT in action.  In this problem we'll obtain many, many samples for different sizes of $n$ and see how the distribution of the sample mean behaves.
+
+##### **Part 1: Function to generate sampling distribution of the sample mean**
+
+Write a function called `samp.dist.mean`, such that:
+
+- **Takes as inputs:** i) a population vector (`pop`), ii) the number of samples (`n`, lower-case) to draw, and iii) the number of experiments to conduct (call this variable is `K`).
+- **In the body of the function:** i) for a given sample size `n`, uses the function `sample.mean` (with `out.sample=FALSE`) to obtain the sample mean for each experiment (i.e., for $k=1,2,\ldots,K$).
+- **Outputs:** returns a vector of length $K$ with the sample means obtained from the $K$ experiments. 
+
+```{r CLT31}
+# create samp.dist.mean here
+samp.dist.mean <- function(pop,n,K){
+  output <- rep(0,K)
+  for (k in 1:K) {
+    output[k] <- sample.mean(pop, n, out.sample = FALSE)
+
+  }
+  return(output)
+}
+samp.dist.mean(pop1,10,2)
+samp.dist.mean(pop2,10,2)
+samp.dist.mean(pop3,10,2)
+samp.dist.mean(pop4,10,2)
+
+```
+
+##### **Part 2: Generate sampling distribution of the sample mean**
+
+Now, for a given value of $n$ let's run many, many experiments and assess what happens to the sampling distribution of the sample mean.  We will vary the value of $n$ to see if we can identify the asymptotic behavior of the sampling distribution of the sample mean with each of our four populations.
+
+For each of $n=30, 50, 100, 1000$ and with each of the four populations generate $K=5,000$ experiments using `samp.dist.mean`.  For each population store your results in a matrix of dimensions $5000\times 4$ (i.e., one column for each value of $n$ and one row for each experiment), call the matrix for population $m$ `ExpPop.m` (where $m=1,2,3,4$).
+
+```{r CLT32}
+# Generate ExpPop.1, ExpPop.2, ExpPop.2, ExpPop.4 here
+
+n <- c(30,50,100,1000)
+k=5000
+
+ExpPop.1 <- matrix(data =0, ncol= 4, nrow=k)
+
+ExpPop.1[, 1] = samp.dist.mean(pop1 , n[1], k)
+ExpPop.1[, 2] = samp.dist.mean(pop1 , n[2], k)
+ExpPop.1[, 3] = samp.dist.mean(pop1 , n[3], k)
+ExpPop.1[, 4] = samp.dist.mean(pop1 , n[4], k)
+head(ExpPop.1)
+
+
+ExpPop.2 <- matrix(data =0, ncol= 4, nrow=k)
+
+ExpPop.2[, 1] = samp.dist.mean(pop2 , n[1], k)
+ExpPop.2[, 2] = samp.dist.mean(pop2 , n[2], k)
+ExpPop.2[, 3] = samp.dist.mean(pop2 , n[3], k)
+ExpPop.2[, 4] = samp.dist.mean(pop2 , n[4], k)
+head(ExpPop.2)
+
+
+ExpPop.3 <- matrix(data =0, ncol= 4, nrow=k)
+
+ExpPop.3[, 1] = samp.dist.mean(pop3 , n[1], k)
+ExpPop.3[, 2] = samp.dist.mean(pop3 , n[2], k)
+ExpPop.3[, 3] = samp.dist.mean(pop3 , n[3], k)
+ExpPop.3[, 4] = samp.dist.mean(pop3 , n[4], k)
+head(ExpPop.3)
+
+
+ExpPop.4 <- matrix(data =0, ncol= 4, nrow=k)
+
+ExpPop.4[, 1] = samp.dist.mean(pop4 , n[1], k)
+ExpPop.4[, 2] = samp.dist.mean(pop4 , n[2], k)
+ExpPop.4[, 3] = samp.dist.mean(pop4 , n[3], k)
+ExpPop.4[, 4] = samp.dist.mean(pop4 , n[4], k)
+head(ExpPop.4)
+
+```
+
+
+##### **Part 3: Get creative: visualize and share your insights about the CLT**
+
+The importance of a good visualization of your data is that it allows you extract meaningful insights of aspects that are buried in it, and that might not be as easily appreciated in numerical summaries.  For this part of the assignment, I want you to: 
+
+- be creative and plot the information contained in the matrices `ExpPop.m`,
+- provide a description of the insights your visualization provide to understand the CLT,
+- discuss how your observed results compare to the asymptotic distribution stipulated by the CLT.
+
+<p style = "color:red">
+We can see that regardless of the distribution of the population, the sample mean distribution resembles bell 
+shape normal distribution, and we can see that increasing the sample size, makes this more visible. This agrees
+with CLT that having sufficient samples results in normal distribution of sample means even if the original
+population distribution is not normal.When we compare our results with the population distribution we can 
+confirm that the sample mean distribution looks like a normal even though the original distributions were 
+normal, uniform, Bernoulli, and mixture. We can also see that the average of sample mean and standard deviations
+are close to the population mean and standard deviation. This gets more visible when we increase the sample 
+size. It is also interesting to see that the Bernoulli distribution that only shows observation occurring at
+two locations, but the sample mean distribution shows a normal distribution that it centered around p=0.2, and
+as n increases we see less variability. 
+</p>
+```{r CLT33}
+# Generate ExpPop.1, ExpPop.2, ExpPop.2, ExpPop.4 here
+par(mfrow = c(2,2))
+hist(ExpPop.1[, 1], main = "n=30",col = heat.colors(10), xlab = "Sample value of ExpPop.1")
+hist(ExpPop.1[, 2], main = "n=50",col = heat.colors(10), xlab = "Sample value of ExpPop.1" )
+hist(ExpPop.1[, 3], main = "n=100",col = heat.colors(10), xlab = "Sample value of ExpPop.1" )
+hist(ExpPop.1[, 4], main = "n=1000",col = heat.colors(10), xlab = "Sample value of ExpPop.1" )
+
+hist(ExpPop.2[, 1], main = "n=30",col = topo.colors(10), xlab = "Sample value of ExpPop.2")
+hist(ExpPop.2[, 2], main = "n=50",col = topo.colors(10), xlab = "Sample value of ExpPop.2" )
+hist(ExpPop.2[, 3], main = "n=100",col = topo.colors(10), xlab = "Sample value of ExpPop.2" )
+hist(ExpPop.2[, 4], main = "n=1000",col = topo.colors(10), xlab = "Sample value of ExpPop.2" )
+
+hist(ExpPop.3[, 1], main = "n=30",col = cm.colors(10), xlab = "Sample value of ExpPop.3")
+hist(ExpPop.3[, 2], main = "n=50",col = cm.colors(10), xlab = "Sample value of ExpPop.3" )
+hist(ExpPop.3[, 3], main = "n=100",col = cm.colors(10), xlab = "Sample value of ExpPop.3" )
+hist(ExpPop.3[, 4], main = "n=1000",col = cm.colors(10), xlab = "Sample value of ExpPop.3" )
+
+hist(ExpPop.4[, 1], main = "n=30",col = terrain.colors(10), xlab = "Sample value of ExpPop.4")
+hist(ExpPop.4[, 2], main = "n=50",col = terrain.colors(10), xlab = "Sample value of ExpPop.4" )
+hist(ExpPop.4[, 3], main = "n=100",col = terrain.colors(10), xlab = "Sample value of ExpPop.4" )
+hist(ExpPop.4[, 4], main = "n=1000",col = terrain.colors(10), xlab = "Sample value of ExpPop.4" )
+
+
+```
+
+### Monte Carlo Integration {.tabset .tabset-fade .tabset-pills} 
+
+#### **Background**
+
+Problems in many fields of knowledge often depend on the evaluation of multivariable integrals.  Sometimes these are too hard to perform in closed form, or solving them using deterministic (i.e., not random) numerical methods may prove to be computationally intractable.  In those cases (and many others) the Monte Carlo (MC) method can provide suitable approximations to the solution.
+  
+##### **Approximating integrals with MC**
+
+Suppose that $\boldsymbol{x}:=(x_1,x_2,\ldots, x_m)'\in\mathbb{R}^m$, and that $g:=\{g(\boldsymbol{x}): \boldsymbol{x}\in\mathbb{R}^m\}$.  Here we will use MC to solve integrals of the form $$\lambda=\int_{\boldsymbol{x}\in\mathcal{D}} g(\boldsymbol{x}) d\boldsymbol{x},\;\text{ where }\;\mathcal{D}\subset \mathbb{R}^m.$$
+
+The idea behind MC integration is to randomly sample a finite number of points from the region $\mathcal{D}$ and use them to approximate $\lambda$, assuming that:  
+
+1. the condition $\int_{\boldsymbol{x}\in\mathcal{D}} g^2(\boldsymbol{x}) d\boldsymbol{x}<\infty$ holds, and 
+
+2. we have a probability density function $p:=\{p(\boldsymbol{x})> 0: \boldsymbol{x}\in \mathcal{D},\text{ such that } \int_{\boldsymbol{x}\in\mathcal{D}} p(\boldsymbol{x}) d\boldsymbol{x}=1\}$, such that $$\int_{\boldsymbol{x}\in\mathcal{D}} \frac{g^2(\boldsymbol{x})}{p(\boldsymbol{x})} d\boldsymbol{x}<\infty.$$
+
+##### **Now, here is the trick.**  
+
+Recall that (if you have seen this before, if not, trust me for now) the expected value (the mean) of a function $h:=\{h(\boldsymbol{x}): \boldsymbol{x}\in\mathbb{R}^m\}$ of a (continuous) random variable, say $X$, with probability density function $p(\boldsymbol{x})$ for $\boldsymbol{x}\in \mathcal{D}$ is defined as $$E[h(\boldsymbol{X})]=\int_{\boldsymbol{x}\in\mathcal{D}} h(\boldsymbol{x})p(\boldsymbol{x}) d\boldsymbol{x}.$$ 
+
+So, if we let $h(\boldsymbol{x})=\frac{g(\boldsymbol{x})}{p(\boldsymbol{x})}$, then we would have that $$E[h(X)]=E\left[\frac{g(\boldsymbol{X})}{p(\boldsymbol{X})}\right]=\int_{\boldsymbol{x}\in\mathcal{D}} \left(\frac{g(\boldsymbol{x})}{p(\boldsymbol{x})}\right) p(\boldsymbol{x}) d\boldsymbol{x}=\int_{\boldsymbol{x}\in\mathcal{D}} g(\boldsymbol{x}) d\boldsymbol{x}=\lambda.$$ 
+
+So, BOOM!  We can use this fact to estimate the integral because we know that to estimate a mean (i.e., the expected value) all we need is to calculate a sample mean. And so, it turns out that MC methods are tightly connected to the CLT.  
+
+More explicitly,  $\lambda$, the integral value you want to calculate, can by estimated as follows:
+
+1. Randomly and independently generate the $m$-dimensional points $\boldsymbol{x}_1, \boldsymbol{x}_2, \ldots, \boldsymbol{x}_n$, where  $\boldsymbol{x}_i=(x_{i1}, x_{i2}, \ldots, x_im)'$, from the distribution defined by the pdf $p(\boldsymbol{x})$.
+
+2. For $i=1,2,\ldots,n$, calculate $h(\boldsymbol{x}_i)=\frac{g(\boldsymbol{x}_i)}{p(\boldsymbol{x}_i)}$ by plugging each value into the function.
+
+3. Calculate the sample mean $$\hat{\lambda}_n=\frac{1}{n}\sum_{i=1}^n \frac{g(\boldsymbol{x}_i)}{p(\boldsymbol{x}_i)},$$ is your MC estimate for $\lambda$.  For $n$ large enough, we know that, by the CLT, corresponds to a draw from a $N(\text{mean}=\lambda, \text{sd}=\sigma/\sqrt{n})$ distribution where:
+
+ $$\lambda=E\left[\frac{g(\boldsymbol{X})}{p(\boldsymbol{X})}\right],\;\text{ and }\;\sigma^2 = \text{var}\left(\frac{g(\boldsymbol{X})}{p(\boldsymbol{X})}\right).$$
+ 
+Ok, enough preambles.  Let's play with this approach.
+
+
+#### **Problem 1**
+
+The idea for this exercise is to approximate $\pi$ using Monte Carlo integration.  To do so, let's use the fact that the area of circle with radius $r$ is given by $A_c=\pi r^2$, such that $\pi = A_c/r^2$.  To estimate $\pi$ using MC we need to setup the problem in probabilistic terms. 
+
+A straightforward way to do this is to inscribe the circle centered at the origin (i.e., at the coordinate $(x_1=0,x_2=0)$) with radius $r$ within a square with sides having length $2r$. Because the area of the square is $A_s=(2r)^2=4r^2$, then solving for $r^2$ implies that  $r^2=A_s/ 4$, such that $$\pi = \frac{A_c}{r^2}= \frac{A_c}{(A_s/ 4)}=4 \left(\frac{A_c}{A_s}\right).$$
+
+Therefore, because of this relationship, solving this problem amounts to sampling points at random within this square and calculating the fraction of them that fall within the circle, which provides an estimate for $(A_c/A_s)$.  The more points you draw, the better the approximation will be.  You know that a point $\boldsymbol{x}=(x_1,x_2)\in\mathbb{R}^2$ falls inside of the circle if $x_1^2+x_2^2\leq r^2$.
+
+
+Using the information provided above write a function called `pi.MC` that: 
+
+- **Takes as inputs:**  i) a value for the radius ($r>0$) and ii) the number of Monte Carlo samples to draw (a positive integer $n$), and
+- **In the body of the function:** draws at random $\boldsymbol{x}_1,\boldsymbol{x}_2,\ldots,\boldsymbol{x}_n$, where $\boldsymbol{x}_i=(x_{i1},x_{i2})$ where $x_{i1}$ and $x_{i2}$ are sampled independently from a Uniform$(-r,r)$ distribution for $i=1,\ldots,n$. 
+- **Outputs:** calculate and output $\hat{\pi}_n$, which is a Monte Carlo estimate for $\pi$ when drawing $n$ samples.
+
+Hint: to obtain the MC estimate note that the proportion $$\left(\frac{A_c}{A_s}\right)\approx \frac{\text{# of points in the circle}}{\text{# of points in the square}}$$ is all you need to estimate.
+
+```{r}
+# write your function pi.MC
+pi.MC <- function(r,n){
+   x = runif(n, min = -r, max = r)
+  y = runif(n, min = -r, max = r)
+  
+  # calculating the number of points lies within the circle
+  point_in_circle = sum(x^2+y^2 <= r^2)
+  point_in_square = n
+  
+  #calculating MC estimate of PI
+  pi.MC = 4 * (point_in_circle / point_in_square)
+  return(pi.MC)
+}
+print(pi.MC(1,5000000))
+```
+
+#### **Problem 2**
+
+##### **Part 1**
+
+Set $r=1$ and letting $n=100, 500, 1000$, for each value of $n$ use the `pi.MC` function you wrote to obtain, $K=10,000$ independent MC estimates of $\pi$.  Sore your results in a matrix with dimensions $K \times 3$ (one column for each value of $n$).
+
+```{r}
+# your code to generate K experiments here
+n100 = replicate(10000,pi.MC(r = 1, n = 100))
+n500 = replicate(10000,pi.MC(r = 1, n = 500))
+n1000 = replicate(10000,pi.MC(r = 1, n = 1000))
+# Creating Matrix
+cnames = c("n100", "n500", "n1000" )
+rnames = seq(1,10000,1)
+m = matrix(data = c(n100, n500, n1000) , ncol = 3, byrow = FALSE, dimnames = list(rnames, cnames))
+head(m)
+```
+
+
+
+##### **Part 2**
+
+
+Use your results from Problem 2, Part 1 to investigate the sampling distribution of the MC estimator as a function of $n$, and assess how closely the CLT holds for each $n$. Importantly, note that the variance for $\hat{pi}_n$ in this problem is 
+
+$$\text{var}(\hat{\pi}_n)=\frac{\sigma^2}{n}=\pi(4-\pi),$$
+its calculation is outside of the scope of this assignment, but use it for comparison with what is predicted by the CLT (i.e., that $\hat{\pi}_n$ asymptotically distributes $N(\pi, \sigma/\sqrt{n})$).  As part of this comparison be creative and use any nice visualization you can generate to display your results. 
+<p style = "color:red">
+As we increase the n, we can see that the sampling distribution of the MC estimator graph looks more 
+like a normal distribution with it's mean being close to 3.14, and also we can see less variability
+which agrees with the formula above.
+</p>
+```{r MC22}
+# your code here
+# PLotting of sampling distribution for different n
+par(mfrow = c(2,3))
+
+hist(m[,1], main = " Histogram  for n = 100 ",freq = FALSE,)
+abline(v = mean(m[,1]), col="red")
+
+hist(m[,2], main = " Histogram  for n = 500 ",freq = FALSE)
+abline(v = mean(m[,2]), col="red")
+
+hist(m[,3], main = " Histogram  for n = 1000 ",freq = FALSE)
+abline(v = mean(m[,3]), col="red")
+```
+
+
+
+
+#### **FYI only: Technical details**
+
+**Nothing to do here, just read if you are interested in the technical details of how what we just did connects to the background I provided on MC.**
+
+Denote by $$\mathcal{C}_r=\{\boldsymbol{x}=(x_1,x_2)\in \mathbb{R}^2: x_1^2+x_2^2\leq r^2, \;\text{for }r>0\}$$ the set of all points that live within the circle centered at the origin (i.e., at the coordinate $(x_1=0,x_2=0)$) with radius $r$.  Also, notice that the area of the circle is equivalent to the double integral over $\mathcal{C}_r$ given by $$A=\pi r^2=\int_{\boldsymbol{x}\in\mathcal{C}_r} d\boldsymbol{x}$$
+$$\Longrightarrow \pi =\frac{1}{r^2}\int_{\boldsymbol{x}\in\mathcal{C}_{r}} d\boldsymbol{x}= \int_{\boldsymbol{x}\in\mathcal{C}_{r}} \frac{1}{r^2} d\boldsymbol{x}.$$
+
+Furthermore, if we define $$g(\boldsymbol{x})=\left\{\begin{matrix}\frac{1}{r^2}&\text{if }(x_1,x_2)\in\mathcal{C}_{r}\\ 0&\text{otherwise.} \end{matrix}\right.,$$ then $$\pi=\int_{\boldsymbol{x}\in\mathbb{R}^2}g(x_1,x_2)dx_1 dx_2$$
+
+
+Now that we have $\pi$ represented as an integral, all left to do to set this up as a MC problem is to specify a distribution with probability density function $p(\boldsymbol{x})=p(x_1,x_2)$ to randomly sample pairs $\boldsymbol{x}_i=(x_{i1},x_{i2})$ (for $i=1,2,\ldots,n$). This can be done by assuming that $x_{i1}$ and $x_{i2}$ are sampled independently each from a Uniform$(-r,r)$ distribution, which by independence corresponds to having $$p(\boldsymbol{x})=p(x_1,x_2)=p(x_1)p(x_2)=\left\{\begin{matrix}\left(\frac{1}{2r}\right)\left(\frac{1}{2r}\right)& \text{if}\;-r\leq x_1\leq r\;\text{and}\;-r\leq x_2\leq r\\ 0&\text{otherwise}.\end{matrix}\right.$$
+
+Once all $n$ points $\boldsymbol{x}_1, \boldsymbol{x}_2, \ldots, \boldsymbol{x}_n$ have been sampled, you MC estimate of $\pi$ is given by: $$\hat{\pi}_n=\frac{1}{n}\sum_{i=1}^n \frac{g(\boldsymbol{x}_i)}{p(\boldsymbol{x}_i)}=\frac{1}{n}\sum_{i=1}^n\frac{(1/r^2)\boldsymbol{1}\{\boldsymbol{x}_i\in \mathcal{C}_r\}}{(1/2r)^2}$$
+$$=\frac{1}{n}\sum_{i=1}^n 4\times\boldsymbol{1}\{\boldsymbol{x}_i\in \mathcal{C}_r\}=\frac{4}{n} \sum_{i=1}^n \boldsymbol{1}\{\boldsymbol{x}_i\in \mathcal{C}_r\}= 4 \left(\frac{\text{# of points in the circle}}{\text{# of points in the square}}\right)$$
