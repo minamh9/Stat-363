@@ -1,0 +1,97 @@
+---
+title: "In Class Problem"
+author: "Mina Mehdinia"
+date: '2022-05-15'
+output: html_document
+---
+```{r}
+library(nycflights13)
+library(dplyr)
+library(ggplot2) 
+library(tidyverse)
+```
+
+# Tuesday 
+Compute the average delay by destination, then join on the airports data frame so you can show the spatial distribution of delays. Here’s an easy way to draw a map of the United States:
+
+You might want to use the size or colour of the points to display the average delay for each airport.
+
+```{r}
+data(flights)
+data(airports)
+data(planes)
+
+```
+
+```{r}
+flights %>% 
+  group_by(dest) %>% 
+  filter(!is.na(arr_delay)) %>% 
+  summarise(mean_delay = mean(arr_delay)) %>% 
+  left_join(airports, by = c("dest" = "faa")) %>% 
+  filter(!is.na(lat) & !is.na(lon)) %>% #remove Na's
+  filter(lon > (-140)) %>% 
+  mutate(mean_delay = ifelse(mean_delay < 0, 0, mean_delay)) %>% 
+  ggplot(aes(x = lon, y = lat, col = mean_delay, size = mean_delay)) +
+  borders("state") + 
+  geom_point() + 
+  coord_quickmap() + 
+  xlab("Longitude") + 
+  ylab("Latitude")
+```
+Add the location of the origin and destination (i.e. the lat and lon) to flights.
+```{r}
+flights %>% 
+  left_join(airports %>% select(faa, lat, lon),
+            by = c("origin" = "faa")) %>%
+  left_join(airports %>% select(faa,lat,lon),
+            by = c("dest" = "faa"), suffix = c("", " .dest"))
+```
+Is there a relationship between the age of a plane and its delays?
+```{r}
+flights %>% select(year, month, day, carrier, tailnum, dep_delay, arr_delay) %>% 
+  left_join(planes %>% select(tailnum, year),
+            by = "tailnum", suffix = c("", "_built")) %>% 
+  mutate(plane_age = (year - year_built)) %>% 
+  filter(!is.na(plane_age) & !is.na(dep_delay) &
+           !is.na(arr_delay) & dep_delay < 500) %>% 
+  select(tailnum, dep_delay, arr_delay, plane_age) %>% 
+  gather(key = type, value = delay, -c(1,4)) %>% 
+  ggplot(aes(jitter(plane_age), delay, color = delay)) +
+  geom_point(size = 0.2, alpha = 0.1) +
+  facet_wrap(type~.) +
+  geom_smooth(method = "gam",formula = y ~ s(x, bs = "cs")) +
+  xlab("Plane Age") +
+  ylab("Delay (in minutes)")
+```
+
+
+# Thursday
+Write a function that takes a numeric matrix and transforms each column by substracting by the column mean and dividing by the column standard deviation. Use this function on the state.x77 matrix
+```{r}
+library(datasets)
+
+my_fn <- function(the_matrix){
+  apply(the_matrix, MARGIN = 2, FUN = function(a_col){
+    output = (a_col - mean(a_col))/sd(a_col)
+    return(output)
+  })
+}
+my_fn(state.x77)
+```
+Combining apply and lapply write a function to obtain 10 subsamples from state.x77 by selecting 20 rows at random each time, and calculate the column means for each of these subsamples.
+```{r}
+lapply(1:10, function(X){
+  my_sample <- state.x77[sample(nrow(state.x77), 20),]
+  apply(my_sample, 2, mean)
+})
+```
+In problem 2, replace lapply by sapply
+```{r}
+sapply(1:10, function(X){
+  my_sample <- state.x77[sample(nrow(state.x77), 20),]
+  apply(my_sample, 2, mean)
+})
+```
+
+

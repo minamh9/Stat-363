@@ -1,0 +1,142 @@
+---
+title: "week 6"
+author: "Mina Mehdinia"
+date: '2022-05-09'
+output: html_document
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## In-class Exercises  {.smaller .build}
+
+1. How many flights to Los Angeles (LAX) did each of the legacy carriers (AA, UA, DL or US) have in May from JFK, and what was their average duration?
+```{r}
+library(nycflights13)
+library(dplyr)
+
+flights %>% 
+  filter(carrier%in%c("AA", "UA", "DL", "US"),
+         month == 5, 
+         origin == "JFK",
+         dest == "LAX") %>% 
+  group_by(carrier) %>%
+  summarise(num_flights = n(),
+            mean_duration = mean(air_time, na.rm=T))
+```
+
+
+2. What was the shortest flight out of each airport in terms of distance? In terms of duration?
+
+```{r}
+#in term of distance
+flights %>% 
+  group_by(origin) %>% 
+  summarise(min_dist = min(distance, na.rm = T))
+```
+
+```{r}
+#in term of durration
+flights %>% 
+  group_by(origin) %>% 
+  summarise(min_time = min(air_time, na.rm = T))
+```
+
+
+3. Which plane (check the tail number) flew out of each New York airport the most?
+```{r}
+flights %>% 
+  filter(!is.na(tailnum)) %>% 
+  group_by(origin, tailnum) %>% 
+  tally() %>% 
+  filter(n==max(n))
+
+```
+
+
+<div style="color:forestgreen">
+*Optional*
+
+Which date should you fly on if you want to have the lowest possible average departure delay? What about arrival delay? 
+</div>
+```{r}
+#lowest possible average departure delay
+flights %>% 
+  mutate(date = paste(day, month, year, sep = "/")) %>% 
+  group_by(date) %>% 
+  summarise(mean.dep.delay = mean(dep_delay, na.rm = T)) %>% 
+  ungroup() %>% 
+  filter(mean.dep.delay == min(mean.dep.delay)) 
+
+#arrival delay
+flights %>% mutate(date = paste(day, month, year, sep= "/")) %>% 
+  group_by(date) %>% 
+  summarise(mean.dep.delay = mean(dep_delay, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  filter(mean.dep.delay == min(mean.dep.delay))
+
+```
+
+
+Compute the rate for table2, and table4a + table4b. You will need to perform four operations:
+
+1. Extract the number of TB cases per country per year
+2. Extract the matching population per country per year
+3. Divide cases by population, and multiply by 10000
+4. Store back in the appropriate place.
+
+```{r}
+library(tidyr)
+library(dplyr)
+table2
+cases <- table2 %>% filter(type=="cases") %>% pull(count)
+table2 %>% 
+  filter(type == "population") %>% 
+  mutate(rate = (cases/count)*10000) %>% 
+  select(-type, -count)
+
+table4a
+table4b
+
+table4a %>% 
+  mutate(rate1999=(`1999`/table4b$`1999`)*10000, 
+         rate2000=(`2000`/table4b$`2000`)*10000) %>% 
+  select(country, rate1999, rate2000)
+
+table1 %>% mutate(rate=(cases/population)*10000)
+
+```
+
+Use tb to generate a tibble having as columns gender and age, and year but restricted to the counts for each year from 1980 through 2008 (i.e., aggregating over countries).
+
+```{r}
+library(dplyr)
+library(tidyverse)
+
+tb = readr::read_csv(paste0("https://raw.githubusercontent.com/tidyverse/tidyr/main/vignettes/tb.csv")) 
+
+tb %>%
+  gather(key = group, value = counts,
+         -iso2, -year,
+         na.rm = TRUE) %>% 
+  separate(col = group, into = c("gender", "age"), sep = 1) %>%
+  mutate(
+    age = case_when(
+      age == "04" ~ "0-4",
+      age == "514" ~ "5-14",
+      age == "014" ~ "0-14",
+      age == "1524" ~ "15-24",
+      age == "2534" ~ "25-34",
+      age == "3544" ~ "35-44",
+      age == "4554" ~ "45-54",
+      age == "5564" ~ "55-64",
+      age == "65" ~ "65",
+      age == "u" ~ NA_character_
+      )
+  ) %>% 
+  spread(key = year, value = counts)
+
+
+```
+

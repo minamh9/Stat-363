@@ -1,0 +1,40 @@
+---
+title: "In-class Exercise #5"
+author: "Mina Mehdinia"
+date: '2022-04-26'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## My Plot
+```{r message=FALSE , Eecho=FALSE, fig.height=5.3, fig.width=8.5}
+library(ggplot2)
+movies = readr::read_csv("data/movies.csv")
+movies <- movies[movies$mpaa_rating!="NC-17",]
+
+ggplot(data = subset(movies,mpaa_rating != "NC-17"),
+       aes(x = audience_score, y = imdb_rating,
+           group = mpaa_rating,
+           color = genre,
+           size = imdb_num_votes/1000)) +
+  geom_point(alpha=0.5) +
+  geom_smooth(stat = "smooth", method = "loess", lwd=1,
+            aes(group = mpaa_rating)) +
+  xlab("Audience score") + ylab("IMDB rating") +
+  ggtitle("IMDB Rating vs Audience Score",subtitle="(by mpaa Rating)")  +
+  theme_bw(base_size = 8) +
+  facet_wrap(mpaa_rating ~., scales = "free") +
+  theme(legend.position = c(0.84,0.23)) +
+  guides(group = "none",
+         color = guide_legend(ncol=2),
+         size = guide_legend(ncol=4)) +
+  scale_color_discrete(name="Genre") +
+  scale_size_continuous(name="Number of votes \n(in thousands)",
+                          breaks=c(200, 400, 600, 800),
+                          labels=c(200, 400, 600, 800))
+```
+

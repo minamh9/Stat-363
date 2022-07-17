@@ -1,0 +1,180 @@
+---
+title: 'Week 8 In-Class'
+author: "Mina Mehdinia"
+date: '2022-05-29'
+output: html_document
+---
+
+```{r}
+
+library(readr)
+library(tidyr)
+library(dplyr)
+library(purrr)
+library(ggplot2)
+library(stringr)
+library(pander)
+library(nycflights13)
+library(gapminder)
+```
+
+##  <span style="color:cornflowerblue">In-class problem</span> {.smaller .build}
+
+Filter from the `restaurants` data set the inspections for coffee shops only. Let's say that a coffee shop is anything that has "COFFEE", "ESPRESSO", or "ROASTER" in the name. 
+
+```{r, echo=T, warning=FALSE, message=FALSE}
+library(tidyverse)
+load("data/restaurants_sub.Rdata")
+
+coffee_data <- restaurants %>% 
+  mutate(Name = str_to_upper(Name)) %>% # capitalize Name column
+  filter(str_detect(Name, "COFFEE|ESPRESSO|ROASTER")) 
+
+coffee_data %>% 
+  distinct(Name) %>%  # remove duplicate
+  head() # see first few rows
+
+
+
+
+```
+
+## <span style="color:cornflowerblue">In-class problems</span> {.smaller .build}
+
+For the following vector of randomly generated names, write a regular expression that,
+```{r}
+thenames <- c("Jeremy Cruz", "Nathaniel Le", "Jasmine Chu", "Bradley Calderon Raygoza", 
+"Quinten Weller", "Katelien Kanamu-Hauanio", "Zuhriyaa al-Amen", 
+"Travale York", "Alexis Ahmed", "David Alcocer", "Jairo Martinez", 
+"Dwone Gallegos", "Amanda Sherwood", "Hadiyya el-Eid", "Shaimaaa al-Can", 
+"Sarah Love", "Shelby Villano", "Sundus al-Hashmi", "Dyani Loving", 
+"Shanelle Douglas")
+```
+
+* detects if the person's first name starts with a vowel (a,e,i,o,u)
+
+```{r}
+thenames[str_detect(thenames, "^[aeiouAEIOU]")] 
+```
+
+* detects if the person's last name starts with a vowel
+
+```{r}
+thenames[str_detect(thenames, " [aeiouAEIOU]")]
+```
+
+
+* detects if either the person's first or last name start with a vowel
+```{r}
+thenames[str_detect(thenames, "^[aeiouAEIOU]|\\s\\b[aeiouAEIOU]")]
+```
+
+
+* detects if neither the person's first nor last name start with a vowel
+
+```{r}
+thenames[str_detect(thenames, "^[^AEIOU].* [^aeiouAEIOU]-?[^AEIOU]")] 
+
+```
+
+
+## <span style="color:cornflowerblue">In-class problem</span> {.smaller .build}
+
+```{r}
+text = c(
+  "apple",
+  "219 733 8965",
+  "329-293-8753",
+  "Work: (579) 499-7527; Home: (543) 355 3679"
+)
+```
+
+* Write a regular expression that will extract *all* phone numbers contained in the vector above.
+```{r}
+patt1 <- "\\(?\\d{3}\\)?-? ?\\d{3}-? ?\\d{4}"
+
+str_extract_all(text, patt1)
+```
+
+
+* Once that works use groups to extract the area code separately from the rest of the phone number.
+```{r}
+str_extract(unlist(str_extract_all(text, patt1)),"(\\d{3})") 
+```
+
+
+## <span style="color:cornflowerblue">In-class problems</span> {.smaller .build}
+
+Use the appropriate lubridate function to parse each of the following dates:
+
+```{r}
+library(lubridate)
+d1 <- "January 1, 2010"
+d2 <- "2015-Mar-07"
+d3 <- "06-Jun-2017"
+d4 <- c("August 19 (2015)", "July 1 (2015)")
+d5 <- "12/30/14" # Dec 30, 2014
+
+mdy(d1)
+ymd(d2)
+dmy(d3)
+mdy(d4)
+mdy(d5)
+
+```
+
+
+
+## <span style="color:cornflowerblue">In-class problem</span> {.smaller .build}
+
+1. On what day of the week should you leave if you want to minimise the chance of a delay?
+```{r}
+library(nycflights13)
+make_datetime_100 <- function(year, month, day, time) {
+  make_datetime(year, month, day, time %/% 100, time %% 100)
+}
+
+flights_dt <- flights %>% 
+  mutate(
+    dep_time = make_datetime_100(year, month, day, dep_time),
+    arr_time = make_datetime_100(year, month, day, arr_time),
+    sched_dep_time = make_datetime_100(year, month, day, sched_dep_time),
+    sched_arr_time = make_datetime_100(year, month, day, sched_arr_time)) %>% 
+  select(origin, dest, ends_with("delay"), ends_with("time")) 
+
+flights_dt %>%  
+  mutate(dow = wday(dep_time, label = T)) %>% 
+  group_by(dow) %>% 
+  filter(!is.na(arr_delay)) %>% 
+  select(arr_delay, dow) %>% 
+  summarise(avg_delay = median(arr_delay, na.rm = T), n = n()) %>% 
+  ggplot(aes(dow, avg_delay)) +
+  geom_bar(stat = "identity", fill = "red") +
+  xlab("day of the week") + ylab("median delay (mins)") +
+  ggthemes::theme_economist()
+```
+
+
+2. Confirm the hypothesis that the earlier arrivals of flights in minutes 20-30 and 50-60 are caused by scheduled flights that leave early. Hint: create a binary variable that tells you whether or not a flight was delayed.
+
+```{r}
+flights_dt %>% 
+  filter(!is.na(arr_delay)) %>% 
+  select(arr_delay, dep_time, sched_dep_time) %>% 
+  mutate(early_dep = factor(ifelse(dep_time < sched_dep_time, 1, 0),
+                            levels = c(1,0),
+                            labels = c("early departure", "on-time/late departure")),
+         minute = minute(dep_time)) %>% 
+  group_by(minute, early_dep) %>% 
+  summarise(avg_delay = mean(arr_delay, na.rm = T),
+            n = n(),
+            .groups = 'drop') %>% # remove warning msg 
+  
+  ggplot(aes(x = minute, y = n)) +
+  geom_bar(stat = "identity", aes(fill = early_dep)) +
+  facet_wrap(early_dep~.) +
+  xlab("departure minute") +
+  ylab("number of flights") +
+  ggthemes::theme_economist_white(gray_bg = F) +
+  theme(legend.position = "none")
+```
